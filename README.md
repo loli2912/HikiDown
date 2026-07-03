@@ -38,7 +38,9 @@ Browser button ──► HikiDown extension ──► local server (127.0.0.1:87
 - Click the **extension icon** for live progress, speed, quality setting
   (Best/4K/1080p/…), audio-only mode, cancel, and an "open folder" button.
 
-Files are saved to `Downloads\HikiDown Videos`.
+Files are saved to `Downloads\HikiDown Videos` by default — click **Change…**
+next to the folder path in the extension popup to pick any other folder (saved
+in `server\config.json`, survives restarts).
 
 ## Why the speed is consistent
 

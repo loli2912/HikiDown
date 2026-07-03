@@ -19,6 +19,17 @@ $("audioOnly").addEventListener("change", () =>
 $("openFolder").addEventListener("click", () =>
   fetch(SERVER + "/openfolder", { method: "POST" }).catch(() => {})
 );
+$("changeFolder").addEventListener("click", () => {
+  $("changeFolder").disabled = true;
+  // a native folder picker opens on the desktop; the popup usually closes
+  // when it takes focus — the choice is still saved by the server
+  fetch(SERVER + "/choosefolder", { method: "POST" })
+    .catch(() => {})
+    .finally(() => {
+      $("changeFolder").disabled = false;
+      poll();
+    });
+});
 $("clearDone").addEventListener("click", () =>
   fetch(SERVER + "/clear", { method: "POST" }).then(poll).catch(() => {})
 );
@@ -102,6 +113,10 @@ async function poll() {
     const data = await res.json();
     $("status-dot").className = "up";
     $("status-text").textContent = "server running";
+    if (data.dir) {
+      $("folder").textContent = data.dir;
+      $("folder").title = data.dir;
+    }
     render(data.jobs || []);
   } catch (e) {
     $("status-dot").className = "down";

@@ -43,8 +43,51 @@ def log(msg):
 
 
 PORT = 8765
-DOWNLOAD_DIR = Path.home() / "Downloads" / "HikiDown Videos"
-DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+CONFIG_FILE = Path(__file__).resolve().parent / "config.json"
+DEFAULT_DIR = Path.home() / "Downloads" / "HikiDown Videos"
+
+
+def load_download_dir():
+    try:
+        cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        p = Path(cfg["download_dir"])
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    except Exception:
+        DEFAULT_DIR.mkdir(parents=True, exist_ok=True)
+        return DEFAULT_DIR
+
+
+DOWNLOAD_DIR = load_download_dir()
+picker_lock = threading.Lock()
+
+
+def set_download_dir(path):
+    global DOWNLOAD_DIR
+    p = Path(path)
+    p.mkdir(parents=True, exist_ok=True)
+    DOWNLOAD_DIR = p
+    CONFIG_FILE.write_text(json.dumps({"download_dir": str(p)}), encoding="utf-8")
+    return p
+
+
+def pick_folder_dialog():
+    """Native folder picker in a helper process (tkinter is not thread-safe)."""
+    code = (
+        "import sys, tkinter as tk\n"
+        "from tkinter import filedialog\n"
+        "r = tk.Tk(); r.withdraw(); r.attributes('-topmost', True)\n"
+        "print(filedialog.askdirectory(title='Choose HikiDown download folder',"
+        " initialdir=sys.argv[1]) or '')\n"
+    )
+    try:
+        out = subprocess.run(
+            [sys.executable, "-c", code, str(DOWNLOAD_DIR)],
+            capture_output=True, text=True, timeout=300,
+        )
+        return out.stdout.strip()
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
 
 jobs = {}          # id -> job dict
 jobs_order = []    # insertion order
@@ -279,7 +322,7 @@ class Handler(BaseHTTPRequestHandler):
                     {k: v for k, v in jobs[i].items() if k != "cancelled"}
                     for i in jobs_order
                 ]
-            self._json(200, {"ok": True, "jobs": out})
+            self._json(200, {"ok": True, "jobs": out, "dir": str(DOWNLOAD_DIR)})
         else:
             self._json(404, {"ok": False, "error": "not found"})
 
@@ -307,6 +350,20 @@ class Handler(BaseHTTPRequestHandler):
                         del jobs[i]
                 jobs_order[:] = keep
             self._json(200, {"ok": True})
+        elif self.path == "/choosefolder":
+            if not picker_lock.acquire(blocking=False):
+                self._json(200, {"ok": False, "error": "picker already open"})
+                return
+            try:
+                path = pick_folder_dialog()
+                if path:
+                    p = set_download_dir(path)
+                    log(f"[config] download folder -> {p}")
+                    self._json(200, {"ok": True, "dir": str(p)})
+                else:
+                    self._json(200, {"ok": False, "error": "cancelled"})
+            finally:
+                picker_lock.release()
         elif self.path == "/openfolder":
             open_explorer(f'explorer "{DOWNLOAD_DIR}"')
             self._json(200, {"ok": True})
