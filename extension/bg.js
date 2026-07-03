@@ -12,6 +12,38 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+// Sites like Facebook/Instagram refuse anonymous downloads, so we forward the
+// browser's cookies for the video's site to the local server. YouTube is
+// deliberately excluded: it works anonymously, and downloading with account
+// cookies risks getting the account rate-limited.
+const NO_COOKIE_HOSTS = /(^|\.)(youtube\.com|googlevideo\.com|youtu\.be)$/;
+
+async function collectCookies(msg) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of [msg.pageUrl, msg.url]) {
+    let u;
+    try { u = new URL(raw); } catch { continue; }
+    if (!u.protocol.startsWith("http") || NO_COOKIE_HOSTS.test(u.hostname)) continue;
+    let cookies = [];
+    try { cookies = await chrome.cookies.getAll({ url: u.href }); } catch { continue; }
+    for (const c of cookies) {
+      const key = c.domain + "|" + c.path + "|" + c.name;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        domain: c.domain,
+        path: c.path,
+        name: c.name,
+        value: c.value,
+        secure: c.secure,
+        expirationDate: c.expirationDate,
+      });
+    }
+  }
+  return out;
+}
+
 async function queueDownload(msg) {
   const settings = await chrome.storage.sync.get({ maxHeight: "best", audioOnly: false });
   let res;
@@ -24,6 +56,7 @@ async function queueDownload(msg) {
         pageUrl: msg.pageUrl || msg.url,
         maxHeight: settings.maxHeight,
         audioOnly: settings.audioOnly,
+        cookies: await collectCookies(msg),
       }),
     });
   } catch (e) {

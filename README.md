@@ -56,6 +56,7 @@ Downloads never go through the browser. The server uses yt-dlp with:
 | Max quality is 720p | Install ffmpeg (`setup.bat` does it), restart the server |
 | YouTube downloads suddenly fail | YouTube changed something — `py -3 -m pip install -U yt-dlp`, restart server |
 | No button on some site's player | The player may swallow mouse events; try the video's dedicated page |
+| Facebook / Instagram / X says "login" or "Unsupported URL" | Make sure you're logged in to that site in the browser — the extension forwards your cookies to the server (localhost only, deleted after each download). YouTube never uses cookies. |
 
 > Note: downloading may violate some sites' terms of service (YouTube's
 > included). Use for personal, offline viewing of content you have the right

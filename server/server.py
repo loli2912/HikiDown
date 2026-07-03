@@ -6,9 +6,13 @@ through yt-dlp with parallel fragment downloads for consistent, fast speed.
     py -3 server.py        (or just double-click start-server.bat)
 """
 
+import ctypes
 import json
 import os
 import shutil
+import subprocess
+import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -22,6 +26,22 @@ except ImportError:
         "yt-dlp is not installed. Run setup.bat first (or: py -3 -m pip install yt-dlp)"
     )
 
+# Windows consoles/redirects default to a legacy codepage that can't encode
+# Japanese etc.; a failed print must never be able to fail a finished job.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
+
+
+def log(msg):
+    try:
+        print(msg, flush=True)
+    except Exception:
+        pass
+
+
 PORT = 8765
 DOWNLOAD_DIR = Path.home() / "Downloads" / "HikiDown Videos"
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -32,17 +52,62 @@ lock = threading.Lock()
 
 
 def find_ffmpeg():
-    """ffmpeg on PATH, or in winget's links dir (PATH may be stale after install)."""
+    """ffmpeg on PATH, or wherever winget put it (PATH may be stale after install)."""
     path = shutil.which("ffmpeg")
     if path:
         return path
-    candidate = (
-        Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Links" / "ffmpeg.exe"
-    )
-    return str(candidate) if candidate.exists() else None
+    local = Path(os.environ.get("LOCALAPPDATA", ""))
+    links = local / "Microsoft" / "WinGet" / "Links" / "ffmpeg.exe"
+    if links.exists():
+        return str(links)
+    packages = local / "Microsoft" / "WinGet" / "Packages"
+    if packages.exists():
+        for pkg in packages.glob("Gyan.FFmpeg*"):
+            hits = sorted(pkg.glob("**/bin/ffmpeg.exe"))
+            if hits:
+                return str(hits[-1])
+    return None
 
 
 FFMPEG = find_ffmpeg()
+
+
+def _focus_explorer():
+    """Bring the newest Explorer window to the foreground.
+
+    Windows 11 opens external folder links as a background tab of an existing
+    window, and blocks focus changes from background processes. Tapping ALT
+    via keybd_event lifts that foreground lock so SetForegroundWindow works.
+    """
+    user32 = ctypes.windll.user32
+    for _ in range(30):  # wait up to 3s for the window/tab to exist
+        hwnd = user32.FindWindowW("CabinetWClass", None)
+        if hwnd:
+            time.sleep(0.3)  # let the new tab finish attaching first
+            if user32.IsIconic(hwnd):
+                user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            user32.keybd_event(0xA4, 0, 0, 0)  # ALT down
+            user32.keybd_event(0xA4, 0, 2, 0)  # ALT up (KEYEVENTF_KEYUP)
+            # attach to the current foreground thread so Windows treats our
+            # focus change as coming from the active app
+            kernel32 = ctypes.windll.kernel32
+            fg_thread = user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), None)
+            our_thread = kernel32.GetCurrentThreadId()
+            attached = fg_thread and user32.AttachThreadInput(our_thread, fg_thread, True)
+            # SwitchToThisWindow force-switches like Alt-Tab; plain
+            # SetForegroundWindow is refused for background processes
+            user32.SwitchToThisWindow(hwnd, True)
+            user32.BringWindowToTop(hwnd)
+            user32.SetForegroundWindow(hwnd)
+            if attached:
+                user32.AttachThreadInput(our_thread, fg_thread, False)
+            return
+        time.sleep(0.1)
+
+
+def open_explorer(command):
+    subprocess.Popen(command)
+    threading.Thread(target=_focus_explorer, daemon=True).start()
 
 
 def build_format(max_height, audio_only):
@@ -54,6 +119,29 @@ def build_format(max_height, audio_only):
         return fmt, {"merge_output_format": "mp4"}
     # without ffmpeg only progressive (single-file) formats are usable
     return f"b[ext=mp4]{h}/b{h}/b", {}
+
+
+def write_cookie_file(job_id, cookies):
+    """Cookies from the extension -> Netscape cookies.txt for yt-dlp."""
+    path = Path(tempfile.gettempdir()) / f"hikidown-cookies-{job_id}.txt"
+    lines = ["# Netscape HTTP Cookie File\n"]
+    for c in cookies:
+        domain = c.get("domain", "")
+        if not domain or not c.get("name"):
+            continue
+        # session cookies have no expiry; give one so yt-dlp doesn't drop them
+        expiry = int(c.get("expirationDate") or (time.time() + 7 * 86400))
+        lines.append("\t".join([
+            domain,
+            "TRUE" if domain.startswith(".") else "FALSE",
+            c.get("path", "/"),
+            "TRUE" if c.get("secure") else "FALSE",
+            str(expiry),
+            c["name"],
+            c.get("value", ""),
+        ]) + "\n")
+    path.write_text("".join(lines), encoding="utf-8")
+    return path
 
 
 def run_job(job, payload):
@@ -94,6 +182,11 @@ def run_job(job, payload):
     if page_url and page_url != job["url"]:
         opts["http_headers"] = {"Referer": page_url}
 
+    cookie_file = None
+    if payload.get("cookies"):
+        cookie_file = write_cookie_file(job["id"], payload["cookies"])
+        opts["cookiefile"] = str(cookie_file)
+
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(job["url"], download=True)
@@ -106,17 +199,24 @@ def run_job(job, payload):
             progress=1.0,
             title=(info or {}).get("title") or job["title"],
             filename=Path(filepath).name if filepath else None,
+            filepath=filepath,
         )
-        print(f"[done] {job['title']}")
+        log(f"[done] {job['title']}")
     except yt_dlp.utils.DownloadCancelled:
         job["status"] = "cancelled"
-        print(f"[cancelled] {job['url']}")
+        log(f"[cancelled] {job['url']}")
     except Exception as e:
         msg = str(e)
         if "ERROR:" in msg:
             msg = msg.split("ERROR:", 1)[1].strip()
         job.update(status="error", error=msg[:300])
-        print(f"[error] {job['url']}: {msg[:200]}")
+        log(f"[error] {job['url']}: {msg[:200]}")
+    finally:
+        if cookie_file:
+            try:
+                cookie_file.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def create_job(payload):
@@ -130,6 +230,7 @@ def create_job(payload):
         "speed": None,
         "eta": None,
         "filename": None,
+        "filepath": None,
         "error": None,
         "cancelled": False,
         "created": time.time(),
@@ -138,7 +239,7 @@ def create_job(payload):
         jobs[job_id] = job
         jobs_order.append(job_id)
     threading.Thread(target=run_job, args=(job, payload), daemon=True).start()
-    print(f"[queued] {payload['url']}")
+    log(f"[queued] {payload['url']}")
     return job_id
 
 
@@ -207,8 +308,18 @@ class Handler(BaseHTTPRequestHandler):
                 jobs_order[:] = keep
             self._json(200, {"ok": True})
         elif self.path == "/openfolder":
-            os.startfile(DOWNLOAD_DIR)  # noqa: S606 — local convenience endpoint
+            open_explorer(f'explorer "{DOWNLOAD_DIR}"')
             self._json(200, {"ok": True})
+        elif self.path == "/reveal":
+            job = jobs.get(self._body().get("id"))
+            fp = job and job.get("filepath")
+            if fp and Path(fp).exists():
+                open_explorer(f'explorer /select,"{fp}"')
+                self._json(200, {"ok": True})
+            else:
+                # file gone or job unfinished — fall back to the folder itself
+                open_explorer(f'explorer "{DOWNLOAD_DIR}"')
+                self._json(200, {"ok": True, "fallback": True})
         else:
             self._json(404, {"ok": False, "error": "not found"})
 

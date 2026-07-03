@@ -2,6 +2,8 @@ const SERVER = "http://127.0.0.1:8765";
 
 const $ = (id) => document.getElementById(id);
 
+$("ver").textContent = "v" + chrome.runtime.getManifest().version;
+
 // ---- settings ----
 chrome.storage.sync.get({ maxHeight: "best", audioOnly: false }).then((s) => {
   $("maxHeight").value = s.maxHeight;
@@ -42,6 +44,17 @@ function render(jobs) {
     title.className = "job-title";
     title.textContent = j.title || j.url;
     title.title = j.title || j.url;
+    if (j.status === "done") {
+      title.classList.add("job-title-link");
+      title.title = "Show file in folder";
+      title.addEventListener("click", () =>
+        fetch(SERVER + "/reveal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: j.id }),
+        }).catch(() => {})
+      );
+    }
 
     const bar = document.createElement("div");
     bar.className = "bar" + (j.status === "done" ? " done" : "");

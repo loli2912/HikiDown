@@ -44,6 +44,8 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     margin-bottom: 4px;
   }
+  .job-title-link { cursor: pointer; }
+  .job-title-link:hover { color: #ff375f; text-decoration: underline; }
   .bar {
     height: 5px; border-radius: 3px; background: #26262e; overflow: hidden;
   }
@@ -75,7 +77,7 @@
 <body>
   <header>
     <div id="status-dot"></div>
-    <h1>HikiDown</h1>
+    <h1>HikiDown <span id="ver" style="color:#66666f;font-weight:normal;font-size:11px"></span></h1>
     <span id="status-text">checking…</span>
   </header>
   <div class="settings">
