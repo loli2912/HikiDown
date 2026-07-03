@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HikiDown",
-  "version": "0.2.1",
+  "version": "0.3.2",
   "description": "One-click video download buttons on YouTube and any site with videos. Downloads are handled by your local HikiDown server for consistent, fast speed.",
   "permissions": ["storage", "cookies"],
   "host_permissions": ["http://127.0.0.1:8765/*", "<all_urls>"],
@@ -35,6 +35,12 @@
       "css": ["content/hikidown.css"],
       "run_at": "document_idle",
       "all_frames": true
+    },
+    {
+      "matches": ["*://*.facebook.com/*"],
+      "js": ["content/fb-main.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
     }
   ]
 }
