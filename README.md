@@ -27,7 +27,7 @@ Browser button ──► HikiDown extension ──► local server (127.0.0.1:87
 
 - Start the server (`start-server.bat`), or set it to launch with Windows:
   press `Win+R`, type `shell:startup`, and drop a shortcut to
-  `start-server-hidden.vbs` in that folder (runs with no window).
+  `start-server-hidden.vbs` and `start-server.bat` in that folder (runs with no window).
 - **YouTube watch page:** a download arrow appears in the player's bottom-right
   control bar.
 - **YouTube home/search/subscriptions:** hover any thumbnail — a small ⬇
