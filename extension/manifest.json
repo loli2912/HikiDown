@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "HikiDown",
+  "version": "0.1.0",
+  "description": "One-click video download buttons on YouTube and any site with videos. Downloads are handled by your local HikiDown server for consistent, fast speed.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:8765/*"],
+  "background": { "service_worker": "bg.js" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
+      "js": ["content/common.js", "content/youtube.js"],
+      "css": ["content/hikidown.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
+      "js": ["content/common.js", "content/generic.js"],
+      "css": ["content/hikidown.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}

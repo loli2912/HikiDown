@@ -1,0 +1,61 @@
+/* HikiDown injected UI */
+
+.hikidown-float {
+  position: fixed;
+  z-index: 2147483646;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(15, 15, 20, 0.85);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: background 0.15s, transform 0.1s;
+}
+.hikidown-float:hover {
+  background: #ff375f;
+  transform: scale(1.08);
+}
+.hikidown-float svg {
+  pointer-events: none;
+}
+
+.hikidown-ytp svg {
+  width: 60%;
+  height: 60%;
+  margin: 20% auto;
+  display: block;
+}
+.hikidown-ytp:hover svg path {
+  fill: #ff375f;
+}
+
+.hikidown-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2147483647;
+  max-width: 360px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(15, 15, 20, 0.92);
+  color: #fff;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+.hikidown-toast-show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.hikidown-toast-error {
+  background: rgba(150, 30, 45, 0.95);
+}

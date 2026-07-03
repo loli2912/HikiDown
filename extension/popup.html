@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: dark; }
+  body {
+    width: 360px;
+    margin: 0;
+    background: #101014;
+    color: #e8e8ee;
+    font: 13px/1.4 system-ui, "Segoe UI", sans-serif;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #26262e;
+  }
+  header h1 { font-size: 14px; margin: 0; flex: 1; }
+  #status-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #666;
+  }
+  #status-dot.up { background: #2ecc71; }
+  #status-dot.down { background: #e74c3c; }
+  #status-text { color: #9a9aa6; font-size: 12px; }
+  .settings {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #26262e;
+  }
+  select {
+    background: #1b1b22; color: #e8e8ee;
+    border: 1px solid #33333d; border-radius: 6px; padding: 3px 6px;
+  }
+  label { display: flex; align-items: center; gap: 5px; }
+  #jobs { max-height: 320px; overflow-y: auto; }
+  .job { padding: 9px 12px; border-bottom: 1px solid #1c1c23; }
+  .job-title {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .bar {
+    height: 5px; border-radius: 3px; background: #26262e; overflow: hidden;
+  }
+  .bar > div { height: 100%; background: #ff375f; transition: width 0.4s; }
+  .bar.done > div { background: #2ecc71; }
+  .job-meta {
+    display: flex; justify-content: space-between;
+    margin-top: 4px; color: #9a9aa6; font-size: 11.5px;
+  }
+  .job-meta .err { color: #ff7b8a; }
+  .cancel {
+    background: none; border: none; color: #9a9aa6;
+    cursor: pointer; font-size: 11.5px; padding: 0;
+  }
+  .cancel:hover { color: #ff375f; }
+  footer {
+    display: flex; justify-content: space-between;
+    padding: 8px 12px;
+  }
+  footer button {
+    background: #1b1b22; color: #e8e8ee;
+    border: 1px solid #33333d; border-radius: 6px;
+    padding: 4px 10px; cursor: pointer;
+  }
+  footer button:hover { border-color: #ff375f; }
+  #empty { padding: 18px 12px; color: #66666f; text-align: center; }
+</style>
+</head>
+<body>
+  <header>
+    <div id="status-dot"></div>
+    <h1>HikiDown</h1>
+    <span id="status-text">checking…</span>
+  </header>
+  <div class="settings">
+    <label>Quality
+      <select id="maxHeight">
+        <option value="best">Best</option>
+        <option value="2160">4K</option>
+        <option value="1440">1440p</option>
+        <option value="1080">1080p</option>
+        <option value="720">720p</option>
+        <option value="480">480p</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="audioOnly"> Audio only</label>
+  </div>
+  <div id="jobs"></div>
+  <div id="empty">No downloads yet.<br>Hover a video and hit the ⬇ button.</div>
+  <footer>
+    <button id="openFolder">Open downloads folder</button>
+    <button id="clearDone">Clear finished</button>
+  </footer>
+  <script src="popup.js"></script>
+</body>
+</html>
